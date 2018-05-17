@@ -94,18 +94,20 @@
 
 #define BUTTONS_BUTTON1_GPIO_PORT_NUM           2
 #define BUTTONS_BUTTON1_GPIO_BIT_NUM            10
-#define JOYSTICK_UP_GPIO_PORT_NUM               2
-#define JOYSTICK_UP_GPIO_BIT_NUM                26
-#define JOYSTICK_DOWN_GPIO_PORT_NUM             2
-#define JOYSTICK_DOWN_GPIO_BIT_NUM              23
-#define JOYSTICK_LEFT_GPIO_PORT_NUM             2
-#define JOYSTICK_LEFT_GPIO_BIT_NUM              25
-#define JOYSTICK_RIGHT_GPIO_PORT_NUM            2
-#define JOYSTICK_RIGHT_GPIO_BIT_NUM             27
-#define JOYSTICK_PRESS_GPIO_PORT_NUM            2
-#define JOYSTICK_PRESS_GPIO_BIT_NUM             22
 
-#define NUM_LEDS 2
+#define JOYSTICK_UP_GPIO_PORT_NUM         5
+#define JOYSTICK_UP_GPIO_BIT_NUM          2
+#define JOYSTICK_DOWN_GPIO_PORT_NUM       5
+#define JOYSTICK_DOWN_GPIO_BIT_NUM        1
+#define JOYSTICK_LEFT_GPIO_PORT_NUM       5
+#define JOYSTICK_LEFT_GPIO_BIT_NUM        0
+#define JOYSTICK_RIGHT_GPIO_PORT_NUM      5
+#define JOYSTICK_RIGHT_GPIO_BIT_NUM       4
+#define JOYSTICK_PRESS_GPIO_PORT_NUM      5
+#define JOYSTICK_PRESS_GPIO_BIT_NUM       3
+
+
+#define NUM_LEDS  (sizeof(ledports)/sizeof(ledports[0]))
 
 typedef struct {
 	int16_t ad_left;						/* left margin */
@@ -145,8 +147,9 @@ const LCD_CONFIG_T EA320x240 = {
 	0		/* Dual panel, 1 = dual panel display */
 };
 
-/* LEDs on port 2 */
-static const uint8_t ledBits[NUM_LEDS] = {26, 27};
+static const uint8_t ledports[] = {1, 0, 1, 2, 1, 1, 1};
+static const uint8_t ledpins[] = {18, 13, 13, 19, 11, 5, 7};
+static const uint8_t ledinverted[] = {true, true, false, false, true, true, true};
 
 /*****************************************************************************
  * Public types/enumerations/variables
@@ -351,8 +354,8 @@ static void Board_LED_Init(void)
 
 	/* Setup port direction and initial output state */
 	for (i = 0; i < NUM_LEDS; i++) {
-		Chip_GPIO_WriteDirBit(LPC_GPIO, 2, ledBits[i], true);
-		Chip_GPIO_WritePortBit(LPC_GPIO, 2, ledBits[i], true);
+		Chip_GPIO_WriteDirBit(LPC_GPIO, ledports[i], ledpins[i], true);
+		Board_LED_Set(i, false);
 	}
 }
 
@@ -429,16 +432,15 @@ void Board_UARTPutSTR(char *str)
 #endif
 }
 
-#define MAXLEDS 2
-static const uint8_t ledports[MAXLEDS] = {2, 2};
-static const uint8_t ledpins[MAXLEDS] = {26, 27};
-
 /* Sets the state of a board LED to on or off */
 void Board_LED_Set(uint8_t LEDNumber, bool On)
 {
-	if (LEDNumber < MAXLEDS) {
-		/* Set state, low is on, high is off */
-		Chip_GPIO_SetPinState(LPC_GPIO, ledports[LEDNumber], ledpins[LEDNumber], !On);
+	if (LEDNumber < NUM_LEDS) {
+		if (ledinverted[LEDNumber]) {
+            Chip_GPIO_SetPinState(LPC_GPIO, ledports[LEDNumber], ledpins[LEDNumber], !On);
+		} else {
+            Chip_GPIO_SetPinState(LPC_GPIO, ledports[LEDNumber], ledpins[LEDNumber], On);
+		}
 	}
 }
 
@@ -447,19 +449,21 @@ bool Board_LED_Test(uint8_t LEDNumber)
 {
 	bool state = false;
 
-	if (LEDNumber < MAXLEDS) {
+	if (LEDNumber < NUM_LEDS) {
 		state = Chip_GPIO_GetPinState(LPC_GPIO, ledports[LEDNumber], ledpins[LEDNumber]);
+		if (ledinverted[LEDNumber]) {
+			state = !state;
+		}
 	}
 
-	/* These LEDs are reverse logic. */
-	return !state;
+	return state;
 }
 
 /* Toggles the current state of a board LED */
 void Board_LED_Toggle(uint8_t LEDNumber)
 {
-	if (LEDNumber < MAXLEDS) {
-		Chip_GPIO_SetPinToggle(LPC_GPIO, ledports[LEDNumber], ledpins[LEDNumber]);
+	if (LEDNumber < NUM_LEDS) {
+		Board_LED_Set(LEDNumber, !Board_LED_Test(LEDNumber));
 	}
 }
 
@@ -476,9 +480,9 @@ void Board_SSP_Init(LPC_SSP_T *pSSP)
 {
 	if (pSSP == LPC_SSP1) {
 		/* Set up clock and muxing for SSP1 interface */
-#if defined(CHIP_LPC177X_8X) || defined(CHIP_LPC40XX)
+
 		/*
-		 * Initialize SSP0 pins connect
+		 * Initialize SSP1 pins connect
 		 * P0.7: SCK
 		 * P0.6: SSEL
 		 * P0.8: MISO
@@ -488,41 +492,39 @@ void Board_SSP_Init(LPC_SSP_T *pSSP)
 		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 6, (IOCON_FUNC2 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
 		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 8, (IOCON_FUNC2 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
 		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 9, (IOCON_FUNC2 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
-#endif
 	}
-#if !defined(CHIP_LPC175X_6X)
 	else if (pSSP == LPC_SSP2) {
-#if defined(CHIP_LPC40XX)
-		/*
-		 * Initialize SSP0 pins connect
-		 * P5.2: SCK
-		 * P5.3: SSEL
-		 * P5.1: MISO
-		 * P5.0: MOSI
-		 */
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 2, (IOCON_FUNC2 | IOCON_MODE_INACT));
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 3, (IOCON_FUNC2 | IOCON_MODE_INACT));
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 1, (IOCON_FUNC2 | IOCON_MODE_INACT));
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 0, (IOCON_FUNC2 | IOCON_MODE_INACT));
-#endif
+//#if defined(CHIP_LPC40XX)
+//		/*
+//		 * Initialize SSP0 pins connect
+//		 * P5.2: SCK
+//		 * P5.3: SSEL
+//		 * P5.1: MISO
+//		 * P5.0: MOSI
+//		 */
+//		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 2, (IOCON_FUNC2 | IOCON_MODE_INACT));
+//		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 3, (IOCON_FUNC2 | IOCON_MODE_INACT));
+//		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 1, (IOCON_FUNC2 | IOCON_MODE_INACT));
+//		Chip_IOCON_PinMuxSet(LPC_IOCON, 5, 0, (IOCON_FUNC2 | IOCON_MODE_INACT));
+//#endif
 
 	}
-#endif
 	else {
 		/* Set up clock and muxing for SSP0 interface */
-#if defined(CHIP_LPC177X_8X)
+
 		/*
 		 * Initialize SSP0 pins connect
-		 * P0.15: SCK
-		 * P0.16: SSEL
-		 * P0.17: MISO
-		 * P0.18: MOSI
+		 * P1.20: SCK
+		 * P0.21: SSEL - uSD/IF  GPIO
+		 * P1.2 : SSEL - LCD/IF  GPIO
+		 * P1.23: MISO
+		 * P1.24: MOSI
 		 */
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 15, (IOCON_FUNC2 | IOCON_MODE_INACT));
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 16, (IOCON_FUNC2 | IOCON_MODE_INACT));
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 17, (IOCON_FUNC2 | IOCON_MODE_INACT));
-		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 18, (IOCON_FUNC2 | IOCON_MODE_INACT));
-#endif
+		Chip_IOCON_PinMuxSet(LPC_IOCON, 1, 20, (IOCON_FUNC5 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
+		Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 21, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
+		Chip_IOCON_PinMuxSet(LPC_IOCON, 1,  2, (IOCON_FUNC0 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
+		Chip_IOCON_PinMuxSet(LPC_IOCON, 1, 23, (IOCON_FUNC5 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
+		Chip_IOCON_PinMuxSet(LPC_IOCON, 1, 24, (IOCON_FUNC5 | IOCON_MODE_INACT | IOCON_DIGMODE_EN));
 	}
 }
 
@@ -827,9 +829,9 @@ uint8_t Joystick_GetStatus(void)
 /* Pin mux for Event Monitor/Recorder */
 void Board_RTC_EV_Init(void)
 {
-	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 7, (IOCON_FUNC4 | IOCON_MODE_INACT));
-	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 8, (IOCON_FUNC4 | IOCON_MODE_INACT));
-	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 9, (IOCON_FUNC4 | IOCON_MODE_INACT));
+	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 7, (IOCON_FUNC4 | IOCON_MODE_INACT)); // RTC_EV0
+	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 8, (IOCON_FUNC4 | IOCON_MODE_INACT)); // RTC_EV1
+	Chip_IOCON_PinMuxSet(LPC_IOCON, 0, 9, (IOCON_FUNC4 | IOCON_MODE_INACT)); // RTC_EV2
 }
 
 /* Setup board for SDC interface */
@@ -893,7 +895,7 @@ void Board_NANDFLash_Init(void)
 void Board_USBD_Init(uint32_t port)
 {
 	/* On the EA LPC40xx board leave VBUS at default setting. It's not connected on the board. */
-	/* Chip_IOCON_PinMux(LPC_IOCON, 1, 30, IOCON_MODE_INACT, IOCON_FUNC2); */ /* USB VBUS */
+	//Chip_IOCON_PinMux(LPC_IOCON, 1, 30, IOCON_MODE_INACT, IOCON_FUNC2); /* USB VBUS */
 	
 	if (port == 1) {
 		Chip_IOCON_PinMux(LPC_IOCON, 0, 29, IOCON_MODE_INACT, IOCON_FUNC1);	/* P0.29 D1+, P0.30 D1- */
@@ -902,8 +904,8 @@ void Board_USBD_Init(uint32_t port)
 		while ((LPC_USB->USBClkSt & 0x12) != 0x12); 
 	} else {
 		Chip_IOCON_PinMux(LPC_IOCON, 0, 31, IOCON_MODE_INACT, IOCON_FUNC1);	/* P0.31 D2+, D2- */
-		Chip_IOCON_PinMux(LPC_IOCON, 0, 14, IOCON_MODE_INACT, IOCON_FUNC3);
-		Chip_IOCON_PinMux(LPC_IOCON, 0, 13, IOCON_MODE_INACT, IOCON_FUNC1);
+		Chip_IOCON_PinMux(LPC_IOCON, 0, 14, IOCON_MODE_INACT, IOCON_FUNC3); /* USB_CONNECT2 */
+		//Chip_IOCON_PinMux(LPC_IOCON, 0, 13, IOCON_MODE_INACT, IOCON_FUNC1); /* USB_UP_LED2 */
 		
 		LPC_USB->USBClkCtrl = 0x1A;                /* Dev, AHB clock enable */
 		while ((LPC_USB->USBClkSt & 0x1A) != 0x1A); 
