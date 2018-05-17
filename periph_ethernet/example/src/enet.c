@@ -186,6 +186,19 @@ void ETH_IRQHandler(void)
 	/* This demo is entirely polled, so the IRQ isn't really needed */
 }
 
+
+// show a number using up to 4 LEDs as binary digits
+static void showPosition(uint8_t pos)
+{
+	for (uint8_t n = 0; n < 4; n++)
+	{
+		Board_LED_Set(n, pos & (1 << n));
+	}
+	volatile uint32_t dly = SystemCoreClock/10;
+	while (dly--); //busy wait
+}
+
+
 /**
  * @brief	main routine for ENET example
  * @return	Nothing (function should not exit)
@@ -197,16 +210,11 @@ int main(void)
 	int32_t rxBytes, i;
 	bool ethpkttgl = true;
 	volatile int k = 1;
-	volatile uint32_t dly;
 
 	SystemCoreClockUpdate();
 	Board_Init();
 	
-	Board_LED_Set(0, true );
-	Board_LED_Set(1, false);
-	Board_LED_Set(2, false);
-	dly = SystemCoreClock/10;
-	while (dly--); //busy wait
+	showPosition(1);
 
 	/* Setup ethernet and PHY */
 #if defined(USE_RMII)
@@ -215,44 +223,25 @@ int main(void)
 	Chip_ENET_Init(LPC_ETHERNET, false);
 #endif
 
-	Board_LED_Set(0, false);
-	Board_LED_Set(1, true );
-	Board_LED_Set(2, false);
-	dly = SystemCoreClock/10;
-	while (dly--); //busy wait
+	showPosition(2);
 
 	/* Setup MII clock rate and PHY address */
 	Chip_ENET_SetupMII(LPC_ETHERNET, Chip_ENET_FindMIIDiv(LPC_ETHERNET, 2500000), 1);
 
-	Board_LED_Set(0, true );
-	Board_LED_Set(1, true );
-	Board_LED_Set(2, false);
-	dly = SystemCoreClock/10;
-	while (dly--); //busy wait
+	showPosition(3);
 
 	lpc_phy_init(true, localMsDelay);
 
-	Board_LED_Set(0, false);
-	Board_LED_Set(1, false);
-	Board_LED_Set(2, true );
-	dly = SystemCoreClock/10;
-	while (dly--); //busy wait
+	showPosition(4);
 
 	Powerdown_PHY();
 
-	Board_LED_Set(0, true );
-	Board_LED_Set(1, false);
-	Board_LED_Set(2, true );
-	dly = SystemCoreClock/10;
-	while (dly--); //busy wait
+	showPosition(5);
 
 	NVIC_SystemReset();
 
-	dly = SystemCoreClock/10;
-	while (dly--); //busy wait
-
 	// should never get here
-	Board_LED_Set(3, true );
+	showPosition(6);
 
 
 	/************************************************************************/
