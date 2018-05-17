@@ -197,30 +197,67 @@ int main(void)
 	int32_t rxBytes, i;
 	bool ethpkttgl = true;
 	volatile int k = 1;
+	volatile uint32_t dly;
 
 	SystemCoreClockUpdate();
 	Board_Init();
 	
-	/* LED0 is used for the link status, on = PHY cable detected */
-	/* Initial LED state is off to show an unconnected cable state */
-	Board_LED_Set(0, false);
+	Board_LED_Set(0, true );
+	Board_LED_Set(1, false);
+	Board_LED_Set(2, false);
+	dly = SystemCoreClock/10;
+	while (dly--); //busy wait
 
 	/* Setup ethernet and PHY */
 #if defined(USE_RMII)
 	Chip_ENET_Init(LPC_ETHERNET, true);
-
 #else
 	Chip_ENET_Init(LPC_ETHERNET, false);
 #endif
 
+	Board_LED_Set(0, false);
+	Board_LED_Set(1, true );
+	Board_LED_Set(2, false);
+	dly = SystemCoreClock/10;
+	while (dly--); //busy wait
+
 	/* Setup MII clock rate and PHY address */
 	Chip_ENET_SetupMII(LPC_ETHERNET, Chip_ENET_FindMIIDiv(LPC_ETHERNET, 2500000), 1);
 
+	Board_LED_Set(0, true );
+	Board_LED_Set(1, true );
+	Board_LED_Set(2, false);
+	dly = SystemCoreClock/10;
+	while (dly--); //busy wait
+
 	lpc_phy_init(true, localMsDelay);
+
+	Board_LED_Set(0, false);
+	Board_LED_Set(1, false);
+	Board_LED_Set(2, true );
+	dly = SystemCoreClock/10;
+	while (dly--); //busy wait
 
 	Powerdown_PHY();
 
+	Board_LED_Set(0, true );
+	Board_LED_Set(1, false);
+	Board_LED_Set(2, true );
+	dly = SystemCoreClock/10;
+	while (dly--); //busy wait
+
 	NVIC_SystemReset();
+
+	dly = SystemCoreClock/10;
+	while (dly--); //busy wait
+
+	// should never get here
+	Board_LED_Set(3, true );
+
+
+	/************************************************************************/
+	/************************************************************************/
+
 
 	/* Setup MAC address for device */
 	Board_ENET_GetMacADDR(macaddr);
