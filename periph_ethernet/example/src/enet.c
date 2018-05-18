@@ -205,142 +205,34 @@ static void showPosition(uint8_t pos)
  */
 int main(void)
 {
-	uint8_t macaddr[6], *workbuff;
-	uint32_t physts = 0;
-	int32_t rxBytes, i;
-	bool ethpkttgl = true;
-	volatile int k = 1;
-
 	SystemCoreClockUpdate();
 	Board_Init();
 	
-	showPosition(1);
+	while (true)
+	{
+		showPosition(1);
 
-	/* Setup ethernet and PHY */
-#if defined(USE_RMII)
-	Chip_ENET_Init(LPC_ETHERNET, true);
-#else
-	Chip_ENET_Init(LPC_ETHERNET, false);
-#endif
+		/* Setup ethernet and PHY */
+	#if defined(USE_RMII)
+		Chip_ENET_Init(LPC_ETHERNET, true);
+	#else
+		Chip_ENET_Init(LPC_ETHERNET, false);
+	#endif
 
-	showPosition(2);
+		showPosition(2);
 
-	/* Setup MII clock rate and PHY address */
-	Chip_ENET_SetupMII(LPC_ETHERNET, Chip_ENET_FindMIIDiv(LPC_ETHERNET, 2500000), 1);
+		/* Setup MII clock rate and PHY address */
+		Chip_ENET_SetupMII(LPC_ETHERNET, Chip_ENET_FindMIIDiv(LPC_ETHERNET, 2500000), 1);
 
-	showPosition(3);
+		showPosition(3);
 
-	lpc_phy_init(true, localMsDelay);
+		lpc_phy_init(true, localMsDelay);
 
-	showPosition(4);
+		showPosition(4);
 
-	Powerdown_PHY();
+		Powerdown_PHY();
 
-	showPosition(5);
-
-	NVIC_SystemReset();
-
-	// should never get here
-	showPosition(6);
-
-
-	/************************************************************************/
-	/************************************************************************/
-
-
-	/* Setup MAC address for device */
-	Board_ENET_GetMacADDR(macaddr);
-	Chip_ENET_SetADDR(LPC_ETHERNET, macaddr);
-
-	/* Setup descriptors */
-	InitDescriptors();
-
-	/* Enable RX/TX after descriptors are setup */
-	Chip_ENET_TXEnable(LPC_ETHERNET);
-	Chip_ENET_RXEnable(LPC_ETHERNET);
-
-	while (k) {
-		/* Check for receive packets */
-		workbuff = ENET_RXGet(&rxBytes);
-		if (workbuff) {
-			/* Packet was received. Dump some info from the packet */
-			DEBUGOUT("Packet received: ");
-			ethpkttgl = (bool) !ethpkttgl;
-
-			/* Toggle LED2 on each packet received */
-			Board_LED_Set(1, ethpkttgl);
-
-			/* Destination and source MAC addresses */
-			DEBUGOUT("-Dest MAC: %02x:%02x:%02x:%02x:%02x:%02x-",
-					 workbuff[0], workbuff[1], workbuff[2], workbuff[3], workbuff[4], workbuff[5]);
-			DEBUGOUT("-Source MAC: %02x:%02x:%02x:%02x:%02x:%02x-",
-					 workbuff[6], workbuff[7], workbuff[8], workbuff[9], workbuff[10], workbuff[11]);
-
-			/* Length of received packet and embedded len/type */
-			DEBUGOUT("-Packet len: %d", rxBytes);
-			DEBUGOUT("-Type: %04x\r\n", ((((uint32_t) workbuff[12]) << 8) | (((uint32_t) workbuff[13]))));
-			ENET_RXBuffClaim();
-		}
-
-		/* Send a 'dummy' broadcast packet on a keypress. You'll only see this
-		     if your using a tool such as WireShark and the packet will not have
-		   a checksum */
-		if (DEBUGIN() != EOF) {
-			/* Only if link detected */
-			if (physts & PHY_LINK_CONNECTED) {
-				workbuff = ENET_TXBuffGet();
-				if (workbuff) {
-					/* Destination is broadcast */
-					for (i = 0; i < 6; i++) {
-						workbuff[i] = 0xFF;
-					}
-
-					/* Source is this MAC address */
-					memcpy(&workbuff[6], macaddr, 6);
-
-					/* Size will be 128 bytes (total) */
-					workbuff[12] = 0;
-					workbuff[13] = 128;
-
-					/* Some dummy data, fill beyond end of packet */
-					for (i = 0; i < 128; i++) {
-						workbuff[i + 14] = (uint8_t) (i & 0xFF);
-					}
-
-					ENET_TXQueue(128);
-					DEBUGOUT("Packet sent! \r\n");
-					Board_LED_Set(1, true);
-				}
-			}
-		}
-		if (ENET_IsTXFinish()) {
-			Board_LED_Set(1, false);
-		}
-		/* PHY status state machine, LED on when connected. This function will
-		   not block. */
-		physts = lpcPHYStsPoll();
-
-		/* Only check for connection state when the PHY status has changed */
-		if (physts & PHY_LINK_CHANGED) {
-			if (physts & PHY_LINK_CONNECTED) {
-				Board_LED_Set(0, true);
-
-				/* Set interface speed and duplex */
-				if(physts & PHY_LINK_FULLDUPLX)
-					Chip_ENET_SetFullDuplex(LPC_ETHERNET);
-				else
-					Chip_ENET_SetHalfDuplex(LPC_ETHERNET);
-				if(physts & PHY_LINK_SPEED100)
-					Chip_ENET_Set100Mbps(LPC_ETHERNET);
-				else
-					Chip_ENET_Set10Mbps(LPC_ETHERNET);
-			}
-			else {
-				Board_LED_Set(0, false);
-			}
-
-			DEBUGOUT("Link connect status: %d\r\n", ((physts & PHY_LINK_CONNECTED) != 0));
-		}
+		showPosition(5);
 	}
 
 	/* Never returns, for warning only */
