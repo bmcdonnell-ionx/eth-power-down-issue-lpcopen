@@ -238,10 +238,17 @@ int main(void)
 
 	showPosition(5);
 
-	NVIC_SystemReset();
+	//NVIC_SystemReset();
+	Chip_WWDT_Init(LPC_WWDT);
+	Chip_WWDT_SetTimeOut(LPC_WWDT, 10);
+	Chip_WWDT_SetOption (LPC_WWDT, WWDT_WDMOD_WDRESET | WWDT_WDMOD_WDTOF | WWDT_WDMOD_WDEN);
+	Chip_WWDT_Start(LPC_WWDT);
+	// Enable watchdog interrupt
+	NVIC_ClearPendingIRQ(WDT_IRQn);
+	NVIC_EnableIRQ      (WDT_IRQn);
 
-	// should never get here
 	showPosition(6);
+	showPosition(7); // should never get here
 
 
 	/************************************************************************/
