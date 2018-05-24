@@ -238,10 +238,16 @@ int main(void)
 
 	showPosition(5);
 
+	// The important bit is
+    //  lpc_mii_write(LAN8_BCR_REG, LAN8_RESET);
+	lpc_phy_init(true, localMsDelay);
+
+	showPosition(6);
+
 	NVIC_SystemReset();
 
 	// should never get here
-	showPosition(6);
+	showPosition(7);
 
 
 	/************************************************************************/
