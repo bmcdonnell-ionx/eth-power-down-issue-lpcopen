@@ -233,6 +233,12 @@ int main(void)
 		Powerdown_PHY();
 
 		showPosition(5);
+
+		// The important bit is
+		//  lpc_mii_write(LAN8_BCR_REG, LAN8_RESET);
+		lpc_phy_init(true, localMsDelay);
+
+		showPosition(6);
 	}
 
 	/* Never returns, for warning only */
